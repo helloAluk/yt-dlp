@@ -1059,10 +1059,13 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
         # Recover the real container/movie name so playlist-aware front-ends
         # (e.g. MeTube) place the file in '<movie>/<episode>' instead of a bare
         # '正片'. Single licensed movies expose no series/season_title in the
-        # season API, so fall back to the ss{season_id} page title.
+        # season API, so fall back to the ss{season_id} page title. The top-level
+        # 'title' is always the work name for both movies and series, so it is
+        # the most reliable final fallback.
         container_title = (
             traverse_obj(bangumi_info, ('series', 'series_title', {str}))
-            or str_or_none(season_title))
+            or str_or_none(season_title)
+            or str_or_none(bangumi_info.get('title')))
         if not container_title and season_id:
             try:
                 container_title = self._get_bangumi_season_title(

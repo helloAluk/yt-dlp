@@ -1096,15 +1096,16 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
             'http_headers': {'Referer': url},
         }
 
-        # When this episode belongs to a series / licensed movie, tag it as a
-        # (single-item) playlist so playlist-aware front-ends (e.g. MeTube) place
-        # the file in '<container>/<episode>' instead of a bare '<episode title>'.
-        # Setting 'playlist' also stops YoutubeDL (see YoutubeDL.py:2885) from
-        # nulling playlist_index on a standalone single-video result.
-        if container_title:
-            result['playlist'] = container_title
-            result['playlist_title'] = container_title
-            result['playlist_index'] = episode_number or 1
+        # For licensed movies the episode title is a generic placeholder ('正片')
+        # while the real name lives in the container/season title. Surface the
+        # container name as the filename so front-ends (e.g. MeTube) save the
+        # file as '<movie>' instead of '正片'. TV-series episodes keep their
+        # descriptive episode title and are left untouched. We deliberately do
+        # NOT set playlist/playlist_title/playlist_index: that would only matter
+        # if the front-end uses a playlist output template, which the user does
+        # not want here (no '<movie>/' folder).
+        if container_title and (not result.get('title') or result.get('title') == '正片'):
+            result['title'] = container_title
         return result
 
     def _get_bangumi_season_title(self, season_id, video_id):
@@ -1725,8 +1726,15 @@ class BilibiliFavoritesListIE(BilibiliSpaceListBaseIE):
             if not container:
                 container = season_titles.get(season_id) if season_id else None
             if container:
-                entry['playlist_title'] = container
-                entry['playlist_index'] = 1
+                # A licensed movie/collection: the entry title from the favlist
+                # API is the generic placeholder '正片'. Rename it to the real
+                # movie name so downstream tools (e.g. MeTube) save it as
+                # '<movie>' instead of '正片'. TV-series episodes keep their
+                # descriptive episode title, so only the placeholder gets renamed.
+                # No playlist_title/playlist_index is set on purpose (see the
+                # single-movie note above) — we want no '<movie>/' folder.
+                if not media_title or media_title == '正片':
+                    entry['title'] = container
 
             entries.append(entry)
 

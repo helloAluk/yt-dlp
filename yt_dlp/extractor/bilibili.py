@@ -1056,6 +1056,20 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
             if e.get('season_id') == season_id
         ), (None, None))
 
+        # Recover the real container/movie name so playlist-aware front-ends
+        # (e.g. MeTube) place the file in '<movie>/<episode>' instead of a bare
+        # '正片'. Single licensed movies expose no series/season_title in the
+        # season API, so fall back to the ss{season_id} page title.
+        container_title = (
+            traverse_obj(bangumi_info, ('series', 'series_title', {str}))
+            or str_or_none(season_title))
+        if not container_title and season_id:
+            try:
+                container_title = self._get_bangumi_season_title(
+                    str_or_none(season_id), episode_id)
+            except Exception:
+                container_title = None
+
         aid = episode_info.get('aid')
 
         return {
@@ -1073,6 +1087,8 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
                 'title': {lambda v: v and join_nonempty('title', 'long_title', delim=' ', from_dict=v)},
             }),
             'episode_id': episode_id,
+            'playlist_title': str_or_none(container_title),
+            'playlist_index': episode_number or 1,
             'season': str_or_none(season_title),
             'season_id': str_or_none(season_id),
             'season_number': season_number,
@@ -1081,6 +1097,17 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
             '__post_extractor': self.extract_comments(aid),
             'http_headers': {'Referer': url},
         }
+
+    def _get_bangumi_season_title(self, season_id, video_id):
+        webpage = self._download_webpage(
+            f'https://www.bilibili.com/bangumi/play/ss{season_id}', video_id, fatal=False)
+        if not webpage:
+            return None
+        return traverse_obj(
+            self._search_json(
+                r'<script[^>]+type="application/ld\+json"[^>]*>', webpage,
+                'info', video_id, fatal=False),
+            ('itemListElement', ..., 'name', {str}), get_all=False)
 
 
 class BiliBiliBangumiMediaIE(BilibiliBaseIE):
@@ -1655,6 +1682,14 @@ class BilibiliFavoritesListIE(BilibiliSpaceListBaseIE):
                 continue
             entry = self.url_result(
                 f'https://www.bilibili.com/video/{bvid}', BiliBiliIE, bvid)
+
+            # Carry the entry title through. In extract_flat mode MeTube only
+            # sees this stub, so without it the filename resolves to 'NA'. For
+            # licensed movies this is the episode title (e.g. '正片'); for
+            # regular uploads it is the video title.
+            media_title = traverse_obj(media, ('title', {str}))
+            if media_title:
+                entry['title'] = media_title
 
             # Licensed movies / 番剧 episodes listed in a favorites list expose
             # only a generic placeholder title (e.g. '正片') and no container

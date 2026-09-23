@@ -1646,7 +1646,45 @@ class BilibiliFavoritesListIE(BilibiliSpaceListBaseIE):
         if list_info['code'] == -403:
             self.raise_login_required(msg='This is a private favorites list. You need to log in as its owner')
 
-        entries = self._get_entries(list_info, ('data', 'medias'))
+        medias = traverse_obj(list_info, ('data', 'medias', ...)) or []
+        season_titles = {}
+        entries = []
+        for media in medias:
+            bvid = media.get('bvid') or traverse_obj(media, ('bvid', {str}))
+            if not bvid:
+                continue
+            entry = self.url_result(
+                f'https://www.bilibili.com/video/{bvid}', BiliBiliIE, bvid)
+
+            # Licensed movies / 番剧 episodes listed in a favorites list expose
+            # only a generic placeholder title (e.g. '正片') and no container
+            # name. Recover the real movie/collection name so downstream tools
+            # (e.g. MeTube) can place the file in '<movie>/' instead of naming
+            # it after the placeholder.
+            container = (
+                traverse_obj(media, ('season', 'title', {str}))
+                or traverse_obj(media, ('season', 'season_title', {str}))
+                or traverse_obj(media, ('name', {str}))
+            )
+            season_id = str_or_none(
+                traverse_obj(media, ('season', 'season_id')) or media.get('season_id'))
+            if not season_id:
+                link = media.get('link')
+                if link:
+                    season_id = self._search_regex(
+                        r'/bangumi/play/(?:ss|ep)(\d+)', link, 'season_id', default=None)
+            if not container and season_id and season_id not in season_titles:
+                try:
+                    season_titles[season_id] = self._get_bangumi_season_title(season_id, fid)
+                except Exception:
+                    season_titles[season_id] = None
+            if not container:
+                container = season_titles.get(season_id) if season_id else None
+            if container:
+                entry['playlist_title'] = container
+                entry['playlist_index'] = 1
+
+            entries.append(entry)
 
         return self.playlist_result(entries, fid, **traverse_obj(list_info, ('data', 'info', {
             'title': ('title', {str}),
@@ -1659,6 +1697,17 @@ class BilibiliFavoritesListIE(BilibiliSpaceListBaseIE):
             'view_count': ('cnt_info', 'play', {int_or_none}),
             'like_count': ('cnt_info', 'thumb_up', {int_or_none}),
         })))
+
+    def _get_bangumi_season_title(self, season_id, video_id):
+        webpage = self._download_webpage(
+            f'https://www.bilibili.com/bangumi/play/ss{season_id}', video_id, fatal=False)
+        if not webpage:
+            return None
+        return traverse_obj(
+            self._search_json(
+                r'<script[^>]+type="application/ld\+json"[^>]*>', webpage,
+                'info', video_id, fatal=False),
+            ('itemListElement', ..., 'name', {str}), get_all=False)
 
 
 class BilibiliWatchlaterIE(BilibiliSpaceListBaseIE):

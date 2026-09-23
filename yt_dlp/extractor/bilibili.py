@@ -1072,7 +1072,7 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
 
         aid = episode_info.get('aid')
 
-        return {
+        result = {
             'id': episode_id,
             'formats': formats,
             **traverse_obj(bangumi_info, {
@@ -1087,8 +1087,6 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
                 'title': {lambda v: v and join_nonempty('title', 'long_title', delim=' ', from_dict=v)},
             }),
             'episode_id': episode_id,
-            'playlist_title': str_or_none(container_title),
-            'playlist_index': episode_number or 1,
             'season': str_or_none(season_title),
             'season_id': str_or_none(season_id),
             'season_number': season_number,
@@ -1097,6 +1095,17 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
             '__post_extractor': self.extract_comments(aid),
             'http_headers': {'Referer': url},
         }
+
+        # When this episode belongs to a series / licensed movie, tag it as a
+        # (single-item) playlist so playlist-aware front-ends (e.g. MeTube) place
+        # the file in '<container>/<episode>' instead of a bare '<episode title>'.
+        # Setting 'playlist' also stops YoutubeDL (see YoutubeDL.py:2885) from
+        # nulling playlist_index on a standalone single-video result.
+        if container_title:
+            result['playlist'] = container_title
+            result['playlist_title'] = container_title
+            result['playlist_index'] = episode_number or 1
+        return result
 
     def _get_bangumi_season_title(self, season_id, video_id):
         webpage = self._download_webpage(

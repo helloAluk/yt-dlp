@@ -1641,14 +1641,12 @@ class BilibiliFavoritesListIE(BilibiliSpaceListBaseIE):
         fid = self._match_id(url)
 
         list_info = self._download_json(
-            f'https://api.bilibili.com/x/v3/fav/resource/list?media_id={fid}&pn=1&ps=20',
+            f'https://api.bilibili.com/x/v3/fav/resource/list?media_id={fid}&pn=1&ps=20&platform=web',
             fid, note='Downloading favlist metadata')
         if list_info['code'] == -403:
             self.raise_login_required(msg='This is a private favorites list. You need to log in as its owner')
 
-        entries = self._get_entries(self._download_json(
-            f'https://api.bilibili.com/x/v3/fav/resource/ids?media_id={fid}',
-            fid, note='Download favlist entries'), 'data')
+        entries = self._get_entries(list_info, ('data', 'medias'))
 
         return self.playlist_result(entries, fid, **traverse_obj(list_info, ('data', 'info', {
             'title': ('title', {str}),

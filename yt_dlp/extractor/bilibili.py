@@ -899,6 +899,30 @@ class BiliBiliIE(BilibiliBaseIE):
         }
 
 
+# Licensed Bilibili bangumi entries (mostly movies) often carry a *generic*
+# placeholder as the episode title instead of a real name -- either a format
+# placeholder or a language/version placeholder such as '正片', '全篇',
+# '中文版', '粤语版'. Such titles carry no information, so when the real work
+# (movie/collection) name is known they are replaced by that name so the
+# downloaded file is saved as '<movie>.<ext>'.
+BILIBILI_PLACEHOLDER_TITLES = frozenset((
+    '正片',        # the feature / main film
+    '全篇',        # the whole piece
+    '中文版',
+    '英文版',
+    '日文版',
+    '韩文版',
+    '普通话版',
+    '国语版',
+    '粤语版',
+))
+
+
+def _is_bangumi_placeholder_title(title):
+    """True when a bangumi episode title is empty or a generic placeholder."""
+    return not title or title in BILIBILI_PLACEHOLDER_TITLES
+
+
 class BiliBiliBangumiIE(BilibiliBaseIE):
     _VALID_URL = r'https?://(?:www\.)?bilibili\.com/bangumi/play/ep(?P<id>\d+)'
 
@@ -1099,15 +1123,16 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
             'http_headers': {'Referer': url},
         }
 
-        # For licensed movies the episode title is a generic placeholder ('正片')
-        # while the real name lives in the container/season title. Surface the
+        # For licensed movies the episode title is a generic placeholder ('正片',
+        # '全篇', '中文版', '粤语版', ...) while the real name lives in the
+        # container/season title. Surface the
         # container name as the filename so front-ends (e.g. MeTube) save the
-        # file as '<movie>' instead of '正片'. TV-series episodes keep their
-        # descriptive episode title and are left untouched. We deliberately do
+        # file as '<movie>' instead of the placeholder. TV-series episodes keep
+        # their descriptive episode title and are left untouched. We deliberately do
         # NOT set playlist/playlist_title/playlist_index: that would only matter
         # if the front-end uses a playlist output template, which the user does
         # not want here (no '<movie>/' folder).
-        if container_title and (not result.get('title') or result.get('title') == '正片'):
+        if container_title and _is_bangumi_placeholder_title(result.get('title')):
             result['title'] = container_title
         return result
 
@@ -1730,13 +1755,14 @@ class BilibiliFavoritesListIE(BilibiliSpaceListBaseIE):
                 container = season_titles.get(season_id) if season_id else None
             if container:
                 # A licensed movie/collection: the entry title from the favlist
-                # API is the generic placeholder '正片'. Rename it to the real
-                # movie name so downstream tools (e.g. MeTube) save it as
-                # '<movie>' instead of '正片'. TV-series episodes keep their
-                # descriptive episode title, so only the placeholder gets renamed.
-                # No playlist_title/playlist_index is set on purpose (see the
-                # single-movie note above) — we want no '<movie>/' folder.
-                if not media_title or media_title == '正片':
+                # API is a generic placeholder ('正片', '全篇', '中文版', ...).
+                # Rename it to the real movie name so downstream tools
+                # (e.g. MeTube) save it as '<movie>' instead of the placeholder.
+                # TV-series episodes keep their descriptive episode title, so
+                # only the placeholder gets renamed. No playlist_title /
+                # playlist_index is set on purpose (see the single-movie note
+                # above) — we want no '<movie>/' folder.
+                if _is_bangumi_placeholder_title(media_title):
                     entry['title'] = container
 
             entries.append(entry)

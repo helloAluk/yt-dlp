@@ -901,26 +901,28 @@ class BiliBiliIE(BilibiliBaseIE):
 
 # Licensed Bilibili bangumi entries (mostly movies) often carry a *generic*
 # placeholder as the episode title instead of a real name -- either a format
-# placeholder or a language/version placeholder such as '正片', '全篇',
-# '中文版', '粤语版'. Such titles carry no information, so when the real work
-# (movie/collection) name is known they are replaced by that name so the
-# downloaded file is saved as '<movie>.<ext>'.
+# placeholder ('正片', '全片', '全篇', ...) or a language/dubbing/subtitle
+# placeholder ('普通话' / '普通话版', '粤语版', '潮汕话版', ...). Such titles
+# carry no information, so when the real work (movie/collection) name is known
+# they are replaced by that name so the downloaded file is saved as
+# '<movie>.<ext>'.
 BILIBILI_PLACEHOLDER_TITLES = frozenset((
-    '正片',        # the feature / main film
-    '全篇',        # the whole piece
-    '中文版',
-    '英文版',
-    '日文版',
-    '韩文版',
-    '普通话版',
-    '国语版',
-    '粤语版',
+    '正片', '全片', '全篇', '本篇', '全集', '完整版',
+    '中文', '英文', '日文', '韩文', '韩语', '粤语', '普通话', '国语',
+    '潮汕话', '闽南语', '泰语', '泰文', '越南语', '越南文',
+    '法文', '德文', '俄文', '西班牙语', '葡萄牙语', '意大利语',
+    '中字', '原声', '日配', '粤配', '国配', '台配',
 ))
 
 
 def _is_bangumi_placeholder_title(title):
     """True when a bangumi episode title is empty or a generic placeholder."""
-    return not title or title in BILIBILI_PLACEHOLDER_TITLES
+    if not title:
+        return True
+    return (
+        title in BILIBILI_PLACEHOLDER_TITLES
+        # '中文版' -> '中文', '潮汕话版' -> '潮汕话', '普通话' -> itself
+        or title.rstrip('版音字') in BILIBILI_PLACEHOLDER_TITLES)
 
 
 class BiliBiliBangumiIE(BilibiliBaseIE):
@@ -1080,16 +1082,17 @@ class BiliBiliBangumiIE(BilibiliBaseIE):
             if e.get('season_id') == season_id
         ), (None, None))
 
-        # Recover the real container/movie name so playlist-aware front-ends
-        # (e.g. MeTube) place the file in '<movie>/<episode>' instead of a bare
-        # '正片'. Single licensed movies expose no series/season_title in the
-        # season API, so fall back to the ss{season_id} page title. The top-level
-        # 'title' is always the work name for both movies and series, so it is
-        # the most reliable final fallback.
+        # Recover the real container/movie name so front-ends (e.g. MeTube) can
+        # name the file after the work. The top-level 'title' is the work name
+        # for both movies and series, so it is the most complete one; the parent
+        # series_title is used as a fallback (it may drop the '剧场版' suffix).
+        # If nothing is available, fall back to the ss{season_id} page title.
         container_title = (
-            traverse_obj(bangumi_info, ('series', 'series_title', {str}))
-            or str_or_none(season_title)
-            or str_or_none(bangumi_info.get('title')))
+            # the top-level work name is the most complete one (e.g. it keeps
+            # the '剧场版' suffix the parent series title lacks)
+            str_or_none(bangumi_info.get('title'))
+            or traverse_obj(bangumi_info, ('series', 'series_title', {str}))
+            or str_or_none(season_title))
         if not container_title and season_id:
             try:
                 container_title = self._get_bangumi_season_title(

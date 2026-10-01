@@ -5355,7 +5355,7 @@ class FormatSorter:
     regex = r' *((?P<reverse>\+)?(?P<field>[a-zA-Z0-9_]+)((?P<separator>[~:])(?P<limit>.*?))?)? *$'
 
     default = ('hidden', 'aud_or_vid', 'hasvid', 'ie_pref', 'lang', 'quality',
-               'res', 'fps', 'hdr:12', 'vcodec', 'channels', 'acodec',
+               'res', 'fps', 'hdr:12', 'vcodec_rank', 'vcodec', 'channels', 'acodec',
                'size', 'br', 'asr', 'proto', 'ext', 'hasaud', 'source', 'id')  # These must not be aliases
     _prefer_vp9_sort = ('hidden', 'aud_or_vid', 'hasvid', 'ie_pref', 'lang', 'quality',
                         'res', 'fps', 'hdr:12', 'vcodec:vp9.2', 'channels', 'acodec',
@@ -5367,6 +5367,10 @@ class FormatSorter:
     settings = {
         'vcodec': {'type': 'ordered', 'regex': True,
                    'order': ['av0?1', r'vp0?9\.0?2', 'vp0?9', '[hx]265|he?vc?', '[hx]264|avc', 'vp0?8', 'mp4v|h263', 'theora', '', None, 'none']},
+        # Higher is better; extractors may set it to break ties between
+        # formats which share the same quality/resolution/fps. Extractors
+        # which do not set it fall back to 0, i.e. it has no effect.
+        'vcodec_rank': {'convert': 'float_none', 'default': 0},
         'acodec': {'type': 'ordered', 'regex': True,
                    'order': ['[af]lac', 'wav|aiff', 'opus', 'vorbis|ogg', 'aac', 'mp?4a?', 'mp3', 'ac-?4', 'e-?a?c-?3', 'ac-?3', 'dts', '', None, 'none']},
         'hdr': {'type': 'ordered', 'regex': True, 'field': 'dynamic_range',

@@ -46,6 +46,19 @@ from ..utils import (
 )
 
 
+# Preference order of the video codecs of formats which share the same
+# quality/resolution/fps. A higher value means a higher preference. HEVC is
+# preferred on 4K sources, AVC on everything lower; AV1 is only chosen when
+# neither of the other two is available at that quality.
+_BILIBILI_4K_CODEC_RANK = {'hev1': 3, 'avc1': 2, 'av01': 1}
+_BILIBILI_CODEC_RANK = {'avc1': 3, 'hev1': 2, 'av01': 1}
+
+
+def _bilibili_codec_rank(vcodec, is_4k):
+    codec_prefix = (vcodec or '').split('.', 1)[0].lower()
+    return (_BILIBILI_4K_CODEC_RANK if is_4k else _BILIBILI_CODEC_RANK).get(codec_prefix, 0)
+
+
 class BilibiliBaseIE(InfoExtractor):
     _HEADERS = {'Referer': 'https://www.bilibili.com/'}
     _FORMAT_ID_RE = re.compile(r'-(\d+)\.m4s\?')
@@ -94,6 +107,10 @@ class BilibiliBaseIE(InfoExtractor):
             'width': int_or_none(video.get('width')),
             'height': int_or_none(video.get('height')),
             'vcodec': video.get('codecs'),
+            'vcodec_rank': _bilibili_codec_rank(
+                video.get('codecs'),
+                (int_or_none(video.get('width')) or 0) >= 2560
+                or (int_or_none(video.get('height')) or 0) >= 2160),
             'acodec': 'none' if audios else None,
             'dynamic_range': {126: 'DV', 125: 'HDR10'}.get(int_or_none(video.get('id'))),
             'tbr': float_or_none(video.get('bandwidth'), scale=1000),

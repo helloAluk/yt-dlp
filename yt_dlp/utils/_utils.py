@@ -5404,7 +5404,11 @@ class FormatSorter:
         'id': {'convert': 'string', 'field': 'format_id'},
         'height': {'convert': 'float_none'},
         'width': {'convert': 'float_none'},
-        'fps': {'convert': 'float_none'},
+        # Frame rates less than half a frame apart are the same frame rate
+        # expressed through a different timebase (23.976 vs 24, 29.97 vs 30,
+        # 59.94 vs 60, 95.992 vs 95.999), so they tie and fall through to the
+        # next sorting field instead of being decided by a fraction of a frame.
+        'fps': {'convert': 'int_none'},
         'channels': {'convert': 'float_none', 'field': 'audio_channels'},
         'tbr': {'convert': 'float_none'},
         'vbr': {'convert': 'float_none'},
@@ -5483,7 +5487,7 @@ class FormatSorter:
         if value is None:
             if not convert_none:
                 return None
-        else:
+        elif isinstance(value, str):
             value = value.lower()
         conversion = self._get_field_setting(field, 'convert')
         if conversion == 'ignore':
@@ -5494,6 +5498,9 @@ class FormatSorter:
             return float_or_none(value)
         elif conversion == 'bytes':
             return parse_bytes(value)
+        elif conversion == 'int_none':
+            fvalue = float_or_none(value)
+            return None if fvalue is None else int(round(fvalue))
         elif conversion == 'order':
             order_list = (self._use_free_order and self._get_field_setting(field, 'order_free')) or self._get_field_setting(field, 'order')
             use_regex = self._get_field_setting(field, 'regex')
@@ -5596,6 +5603,8 @@ class FormatSorter:
             not_in_list = self._get_field_setting(field, 'not_in_list')
             value = 0 if ((in_list is None or value in in_list) and (not_in_list is None or value not in not_in_list)) else -1
         elif type_ == 'ordered':
+            value = self._resolve_field_value(field, value, True)
+        elif type_ == 'field' and self._get_field_setting(field, 'convert') == 'int_none':
             value = self._resolve_field_value(field, value, True)
 
         # try to convert to number

@@ -56,10 +56,11 @@ _BILIBILI_CODEC_RANK = {'avc1': 3, 'hev1': 2, 'av01': 1}
 # Longest edge (in pixels) above which a video stream is considered to exceed
 # what the playback devices can handle, and is therefore skipped when picking
 # the best format. Known sizes: 4K = 3840x2160, 6K ~= 5760x3240 (some 6K
-# material goes up to 6144 or 6400), 8K = 7680x4320. 7000 sits between the
-# largest 6K variant and 8K, so no legitimate 4K or 6K stream (wide, tall or
-# anamorphic) is mistaken for an oversized one.
-_BILIBILI_MAX_PICK_EDGE = 7000
+# material goes up to 6144), 8K = 7680x4320 on 16:9 sources. However B站 also
+# serves an 8K tier on 3:2 sources as 6480x4320 (1.5x the 3240x2160 4K tier),
+# so 6300 sits between the largest 6K variant and the smallest 8K tier. No
+# legitimate 4K or 6K stream (wide, tall or anamorphic) is caught by it.
+_BILIBILI_MAX_PICK_EDGE = 6300
 
 
 def _bilibili_codec_rank(vcodec, is_4k):

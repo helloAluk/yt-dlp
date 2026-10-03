@@ -5354,11 +5354,14 @@ def orderedSet_from_options(options, alias_dict, *, use_regex=False, start=None)
 class FormatSorter:
     regex = r' *((?P<reverse>\+)?(?P<field>[a-zA-Z0-9_]+)((?P<separator>[~:])(?P<limit>.*?))?)? *$'
 
-    default = ('hidden', 'aud_or_vid', 'hasvid', 'ie_pref', 'lang', 'quality',
-               'res_ok', 'res', 'fps', 'hdr:12', 'vcodec_rank', 'vcodec', 'channels', 'acodec',
+    # 'res_ok' must be sorted before 'quality'/'res': extractors may tag a tier
+    # number in 'quality' (B站 uses 127 for an 8K tier which is only 6480x4320),
+    # and that must not outrank the device capability check.
+    default = ('hidden', 'aud_or_vid', 'hasvid', 'ie_pref', 'lang', 'res_ok',
+               'quality', 'res', 'fps', 'hdr:12', 'vcodec_rank', 'vcodec', 'channels', 'acodec',
                'size', 'br', 'asr', 'proto', 'ext', 'hasaud', 'source', 'id')  # These must not be aliases
-    _prefer_vp9_sort = ('hidden', 'aud_or_vid', 'hasvid', 'ie_pref', 'lang', 'quality',
-                        'res_ok', 'res', 'fps', 'hdr:12', 'vcodec:vp9.2', 'channels', 'acodec',
+    _prefer_vp9_sort = ('hidden', 'aud_or_vid', 'hasvid', 'ie_pref', 'lang', 'res_ok',
+                        'quality', 'res', 'fps', 'hdr:12', 'vcodec:vp9.2', 'channels', 'acodec',
                         'size', 'br', 'asr', 'proto', 'ext', 'hasaud', 'source', 'id')
     ytdl_default = ('hasaud', 'lang', 'quality', 'tbr', 'filesize', 'vbr',
                     'height', 'width', 'proto', 'vext', 'abr', 'aext',

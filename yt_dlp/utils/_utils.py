@@ -5355,10 +5355,10 @@ class FormatSorter:
     regex = r' *((?P<reverse>\+)?(?P<field>[a-zA-Z0-9_]+)((?P<separator>[~:])(?P<limit>.*?))?)? *$'
 
     default = ('hidden', 'aud_or_vid', 'hasvid', 'ie_pref', 'lang', 'quality',
-               'res', 'fps', 'hdr:12', 'vcodec_rank', 'vcodec', 'channels', 'acodec',
+               'res_ok', 'res', 'fps', 'hdr:12', 'vcodec_rank', 'vcodec', 'channels', 'acodec',
                'size', 'br', 'asr', 'proto', 'ext', 'hasaud', 'source', 'id')  # These must not be aliases
     _prefer_vp9_sort = ('hidden', 'aud_or_vid', 'hasvid', 'ie_pref', 'lang', 'quality',
-                        'res', 'fps', 'hdr:12', 'vcodec:vp9.2', 'channels', 'acodec',
+                        'res_ok', 'res', 'fps', 'hdr:12', 'vcodec:vp9.2', 'channels', 'acodec',
                         'size', 'br', 'asr', 'proto', 'ext', 'hasaud', 'source', 'id')
     ytdl_default = ('hasaud', 'lang', 'quality', 'tbr', 'filesize', 'vbr',
                     'height', 'width', 'proto', 'vext', 'abr', 'aext',
@@ -5371,6 +5371,10 @@ class FormatSorter:
         # formats which share the same quality/resolution/fps. Extractors
         # which do not set it fall back to 0, i.e. it has no effect.
         'vcodec_rank': {'convert': 'float_none', 'default': 0},
+        # 0 for formats which exceed the largest resolution that is still
+        # playable (above 6K; 8K and beyond), 1 otherwise. Extractors that do
+        # not set it keep the default 1, i.e. it has no effect.
+        'res_ok': {'convert': 'float_none', 'default': 1},
         'acodec': {'type': 'ordered', 'regex': True,
                    'order': ['[af]lac', 'wav|aiff', 'opus', 'vorbis|ogg', 'aac', 'mp?4a?', 'mp3', 'ac-?4', 'e-?a?c-?3', 'ac-?3', 'dts', '', None, 'none']},
         'hdr': {'type': 'ordered', 'regex': True, 'field': 'dynamic_range',

@@ -53,9 +53,21 @@ from ..utils import (
 _BILIBILI_4K_CODEC_RANK = {'hev1': 3, 'avc1': 2, 'av01': 1}
 _BILIBILI_CODEC_RANK = {'avc1': 3, 'hev1': 2, 'av01': 1}
 
+# Longest edge (in pixels) above which a video stream is considered to exceed
+# what the playback devices can handle, and is therefore skipped when picking
+# the best format. Known sizes: 4K = 3840x2160, 6K ~= 5760x3240 (some 6K
+# material goes up to 6144 or 6400), 8K = 7680x4320. 7000 sits between the
+# largest 6K variant and 8K, so no legitimate 4K or 6K stream (wide, tall or
+# anamorphic) is mistaken for an oversized one.
+_BILIBILI_MAX_PICK_EDGE = 7000
+
 
 def _bilibili_codec_rank(vcodec, is_4k):
     codec_prefix = (vcodec or '').split('.', 1)[0].lower()
+    # B站 serves CMAF segments whose codec string starts with hvc1/avc3, which
+    # must count as the same codecs as hvc1/hev1 and avc1
+    codec_prefix = {'hvc': 'hev1', 'hvc1': 'hev1', 'hevc': 'hev1',
+                    'avc3': 'avc1'}.get(codec_prefix, codec_prefix)
     return (_BILIBILI_4K_CODEC_RANK if is_4k else _BILIBILI_CODEC_RANK).get(codec_prefix, 0)
 
 
@@ -111,6 +123,9 @@ class BilibiliBaseIE(InfoExtractor):
                 video.get('codecs'),
                 (int_or_none(video.get('width')) or 0) >= 2560
                 or (int_or_none(video.get('height')) or 0) >= 2160),
+            # Skipped by the format sorter if it exceeds 6K
+            'res_ok': 0 if max(int_or_none(video.get('width')) or 0,
+                               int_or_none(video.get('height')) or 0) > _BILIBILI_MAX_PICK_EDGE else 1,
             'acodec': 'none' if audios else None,
             'dynamic_range': {126: 'DV', 125: 'HDR10'}.get(int_or_none(video.get('id'))),
             'tbr': float_or_none(video.get('bandwidth'), scale=1000),
